@@ -1,0 +1,113 @@
+Ansible notes
+
+
+add ssh keys (musy have been named in the /etc/hosts file)
+
+ssh-copy-id -i .ssh/open servera.example.com
+
+then ping them,
+
+ansible -m ping all
+
+
+gather facts*
+
+ansible web -m setup
+
+ansible (servername) -m (noidea) command
+
+
+install a package
+
+ansible web -b -m yum -a "name=httpd state=present"
+
+ansible (servername) -m(command to run on system) yum() service name and version
+
+-f (threads)
+-m (module to use)
+
+-a (no idea but most basic apparrently )
+
+
+(not ansible but nice way to check its installed)
+
+ssh servera.example.com "rpm -qa | grep httpd-[0-9]*"
+
+
+
+start a service we istalled
+
+ansible web -b -m service -a "name=httpd state=started"
+
+and then verifi using ssh again
+
+ssh servera.example.com "systemctl status httpd"
+
+That was just command to run and then quit
+
+
+now for a play book
+
+
+Create a site.yml file containing the playbook
+
+so vi *playbook.yml
+
+(complete playbook)
+
+---
+- hosts: web
+  name: Install the web server and start it
+  become: yes
+  vars:
+    httpd_packages:
+      - httpd
+      - mod_wsgi
+    apache_test_message: This is a test message
+    apache_max_keep_alive_requests: 115
+
+  tasks:
+    - name: Install the apache web server
+      yum:
+        name: "{{ item }}"
+        state: present
+      with_items: "{{ httpd_packages }}"
+      notify: restart apache service
+
+    - name: Generate apache's configuration file from jinja2 template
+      template:
+        src: templates/httpd.conf.j2
+        dest: /etc/httpd/conf/httpd.conf
+      notify: restart apache service
+
+    - name: Generate a basic homepage from jinja2 template
+      template:
+        src: templates/index.html.j2
+        dest: /var/www/html/index.html
+
+    - name: Start the apache web server
+      service:
+        name: httpd
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: restart apache service
+      service:
+        name: httpd
+        state: restarted
+        enabled: yes
+
+
+
+
+  create a folder called templates to create template config files which will let you move them into other servers and automate setup
+  even more.
+
+
+  tower setup for no reason
+
+  $ sudo wget https://bit.ly/towerlatest -O ansible-tower-setup-latest.tar.gz
+$ tar -xvzf ansible-tower-setup-latest.tar.gz
+$ cd ansible-tower-setup-*
+$ ./setup.sh
